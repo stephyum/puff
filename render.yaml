@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: puff
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true

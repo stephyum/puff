@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(/opt/homebrew/bin/node --version)",
+      "Bash(/usr/local/bin/node --version)",
+      "Read(//opt/anaconda3/bin/**)",
+      "Bash(/opt/anaconda3/bin/pip install:*)",
+      "Bash(/opt/anaconda3/bin/python init_db.py)",
+      "Bash(/opt/anaconda3/bin/python -c \":*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(pkill -f \"server.py\")",
+      "Bash(/opt/anaconda3/bin/python seed_more.py)",
+      "Bash(tee /tmp/seed_output.txt)",
+      "Bash(tee /tmp/seed2_output.txt)",
+      "Bash(/opt/anaconda3/bin/python fetch_photos.py)",
+      "Bash(/opt/anaconda3/bin/python seed_cultural.py)",
+      "Bash(tee /tmp/cultural_seed.txt)",
+      "Bash(jobs -l)",
+      "Bash(/opt/anaconda3/bin/pip show:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.zip -o /tmp/ngrok.zip)",
+      "Bash(unzip -o /tmp/ngrok.zip -d /usr/local/bin/)",
+      "Bash(curl -s \"https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-darwin-amd64.zip\" -o /tmp/ngrok.zip)",
+      "Bash(unzip -o /tmp/ngrok.zip -d /tmp/ngrok_bin/)",
+      "Bash(mv /tmp/ngrok_bin/ngrok /usr/local/bin/ngrok)",
+      "Bash(chmod +x /usr/local/bin/ngrok)",
+      "Bash(ngrok version:*)",
+      "Bash(mkdir -p ~/bin)",
+      "Bash(mv /tmp/ngrok_bin/ngrok ~/bin/ngrok)",
+      "Bash(chmod +x ~/bin/ngrok)",
+      "Bash(~/bin/ngrok version:*)",
+      "Bash(~/bin/ngrok config:*)",
+      "Bash(curl -s http://localhost:4040/api/tunnels)",
+      "Bash(curl -s http://localhost:8080)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

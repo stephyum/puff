@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Puff — Healthy Baking</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ── Navbar ── -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <div class="brand">
+        <span class="brand-icon">🌿</span>
+        <span class="brand-name">Puff</span>
+      </div>
+      <div id="user-area" class="user-area">
+        <div id="user-guest" class="user-guest">
+          <button class="user-btn" onclick="openAuth('login')">Log in</button>
+          <button class="user-btn user-btn-primary" onclick="openAuth('register')">Sign up</button>
+        </div>
+        <div id="user-loggedin" class="user-loggedin" style="display:none">
+          <span id="user-greeting" class="user-greeting"></span>
+          <button class="user-btn user-btn-ghost" onclick="doLogout()">Log out</button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <header class="site-header">
+    <div class="hero-inner">
+      <h1 class="hero-title">Bake anything.<br><span class="hero-accent">Make it healthier.</span></h1>
+      <p class="tagline">Search hundreds of baking recipes — then discover healthier, vegan, and gluten-free versions.</p>
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+        </svg>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search recipes, ingredients, cuisine…"
+          autocomplete="off"
+          aria-label="Search recipes"
+        />
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+
+    <!-- Category tabs + unit toggle -->
+    <div class="controls-bar">
+      <div id="category-tabs" class="category-tabs" role="tablist"></div>
+      <div class="unit-toggle" role="group" aria-label="Unit system">
+        <button id="btn-us"     class="unit-btn active" onclick="setUnitSystem('us')">US</button>
+        <button id="btn-metric" class="unit-btn"        onclick="setUnitSystem('metric')">Metric</button>
+      </div>
+    </div>
+
+    <!-- Results count -->
+    <p class="results-count" id="recipe-count"></p>
+
+    <!-- Recipe grid -->
+    <div id="recipe-grid" class="recipe-grid" aria-live="polite"></div>
+
+  </main>
+
+  <!-- ── Modal ── -->
+  <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span class="footer-brand">🌿 Puff</span>
+      <span class="footer-tagline">Every recipe has a healthier version waiting to be discovered.</span>
+    </div>
+  </footer>
+
+  <!-- Auth Modal -->
+  <div id="auth-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content auth-modal-content">
+      <button class="modal-close" onclick="closeAuth()" aria-label="Close">&times;</button>
+      <div id="auth-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="recipes.js"></script>
+</body>
+</html>

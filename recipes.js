@@ -208,22 +208,6 @@ function buildVariantBanner(variant, variantType, originalCalories) {
   '</div>';
 }
 
-function buildAIGenerateSection(recipeId) {
-  var types = [
-    { type: 'healthy',     label: '✦ Healthier',   cls: 'ai-btn-healthy' },
-    { type: 'vegan',       label: '🌱 Vegan',       cls: 'ai-btn-vegan'   },
-    { type: 'gluten-free', label: '🌾 Gluten-Free', cls: 'ai-btn-gf'      },
-  ];
-  return '<div class="ai-generate-section">' +
-    '<p class="ai-generate-label">Explore more versions:</p>' +
-    '<div class="ai-btn-row">' +
-    types.map(function(t) {
-      return '<button class="ai-gen-btn ' + t.cls + '" onclick="generateVariant(' + recipeId + ',\'' + t.type + '\')">' +
-        t.label + '</button>';
-    }).join('') +
-    '</div>' +
-  '</div>';
-}
 
 function buildModal(recipe) {
   var calSaving = recipe.calories - recipe.healthyCalories;
@@ -232,8 +216,8 @@ function buildModal(recipe) {
   var extraTabs = Object.keys(variants).filter(function(k) { return k !== 'healthy'; });
 
   var tabs =
-    '<button class="version-tab active" data-tab="classic" onclick="switchTab(\'classic\')">Classic</button>' +
-    '<button class="version-tab healthy-tab" data-tab="healthy" onclick="switchTab(\'healthy\')">✦ Healthier</button>' +
+    '<button class="version-tab healthy-tab active" data-tab="healthy" onclick="switchTab(\'healthy\')">✦ Healthier</button>' +
+    '<button class="version-tab" data-tab="classic" onclick="switchTab(\'classic\')">Classic</button>' +
     extraTabs.map(function(vt) {
       var meta = VARIANT_META[vt] || { label: vt, cls: '' };
       return '<button class="version-tab ' + meta.cls + '" data-tab="variant-' + vt + '" onclick="switchTab(\'variant-' + vt + '\')">' +
@@ -279,8 +263,7 @@ function buildModal(recipe) {
     '<div class="version-tabs">' + tabs + '</div>' +
 
     // Classic tab
-    '<div class="tab-panel active" data-tab="classic">' +
-      buildAIGenerateSection(recipe.id) +
+    '<div class="tab-panel" data-tab="classic">' +
       '<div class="recipe-two-col">' +
         '<div><p class="section-title">Ingredients</p>' + buildIngredientsList(recipe.ingredients, false) + '</div>' +
         '<div><p class="section-title">Instructions</p>' + buildStepsList(recipe.steps) + '</div>' +
@@ -288,7 +271,7 @@ function buildModal(recipe) {
     '</div>' +
 
     // Built-in Healthier tab
-    '<div class="tab-panel" data-tab="healthy">' +
+    '<div class="tab-panel active" data-tab="healthy">' +
       '<div class="healthy-banner">' +
         '<div class="healthy-banner-icon">&#127807;</div>' +
         '<div class="healthy-banner-body">' +
@@ -347,46 +330,6 @@ function closeModal() {
   document.body.classList.remove('modal-open');
 }
 
-// ===== AI VARIANT GENERATION =====
-async function generateVariant(recipeId, variantType) {
-  var recipe = recipes.find(function(r) { return r.id === recipeId; });
-  if (!recipe) return;
-
-  if (recipe.variants && recipe.variants[variantType]) {
-    switchTab('variant-' + variantType);
-    return;
-  }
-
-  var btn = document.querySelector('.ai-gen-btn[onclick*="\'' + variantType + '\'"]');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="ai-spinner"></span> Loading\u2026';
-  }
-
-  try {
-    var res = await fetch('/api/recipes/' + recipeId + '/adapt', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ variant_type: variantType }),
-    });
-    if (!res.ok) {
-      var err = await res.json().catch(function() { return {}; });
-      throw new Error(err.error || 'Server error ' + res.status);
-    }
-    var variant = await res.json();
-    if (!recipe.variants) recipe.variants = {};
-    recipe.variants[variantType] = variant;
-    document.getElementById('modal-content').innerHTML = buildModal(recipe);
-    switchTab('variant-' + variantType);
-  } catch(e) {
-    if (btn) {
-      btn.disabled = false;
-      var meta = VARIANT_META[variantType] || { label: variantType };
-      btn.innerHTML = meta.label;
-    }
-    alert('Could not generate variant: ' + e.message);
-  }
-}
 
 // ===== REVIEWS =====
 async function loadReviews(recipeId) {

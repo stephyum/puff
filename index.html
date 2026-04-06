@@ -25,6 +25,7 @@
         </div>
         <div id="user-loggedin" class="user-loggedin" style="display:none">
           <span id="user-greeting" class="user-greeting"></span>
+          <button class="user-btn user-btn-primary" onclick="openSubmitRecipe()">+ Share Recipe</button>
           <button class="user-btn user-btn-ghost" onclick="doLogout()">Log out</button>
         </div>
       </div>
@@ -82,6 +83,14 @@
       <span class="footer-tagline">Every recipe has a healthier version waiting to be discovered.</span>
     </div>
   </footer>
+
+  <!-- Submit Recipe Modal -->
+  <div id="submit-recipe-overlay" class="modal-overlay" role="dialog" aria-modal="true">
+    <div class="modal-content submit-recipe-modal">
+      <button class="modal-close" onclick="closeSubmitRecipe()" aria-label="Close">&times;</button>
+      <div id="submit-recipe-body"></div>
+    </div>
+  </div>
 
   <!-- Auth Modal -->
   <div id="auth-overlay" class="modal-overlay" role="dialog" aria-modal="true">

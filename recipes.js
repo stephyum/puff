@@ -47,18 +47,20 @@ function getIng(ing) { return unitSystem === 'metric' ? ing.metric : ing.us; }
 function normalize(r) {
   return {
     ...r,
-    prepTime:           r.prep_time,
-    cookTime:           r.cook_time,
-    healthyDescription: r.healthy_description,
-    healthyCalories:    r.healthy_calories,
-    healthyIngredients: r.healthy_ingredients,
-    healthySteps:       r.healthy_steps,
-    healthyBenefits:    r.healthy_benefits,
-    healthScore:        r.health_score,
-    variants:           r.variants || {},
-    avgRating:          r.avg_rating,
-    reviewCount:        r.review_count,
-    photoUrl:           r.photo_url || null,
+    prepTime:              r.prep_time,
+    cookTime:              r.cook_time,
+    healthyDescription:    r.healthy_description,
+    healthyCalories:       r.healthy_calories,
+    healthyIngredients:    r.healthy_ingredients,
+    healthySteps:          r.healthy_steps,
+    healthyBenefits:       r.healthy_benefits,
+    healthScore:           r.health_score,
+    variants:              r.variants || {},
+    avgRating:             r.avg_rating,
+    reviewCount:           r.review_count,
+    photoUrl:              r.photo_url || null,
+    submittedBy:           r.submitted_by || null,
+    submittedByUsername:   r.submitted_by_username || null,
   };
 }
 
@@ -141,10 +143,14 @@ function buildRecipeCard(recipe) {
       buildIngredientChips(recipe.ingredients) +
     '</div>' +
     '<div class="card-footer">' +
+      (recipe.submittedByUsername ? '<span class="card-submitted-by">by @' + recipe.submittedByUsername + '</span>' : '') +
       '<button class="view-btn" onclick="openModal(' + recipe.id + ')">' +
         '<svg viewBox="0 0 24 24" class="btn-icon"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>' +
         'View Recipe' +
       '</button>' +
+      (currentUser && recipe.submittedBy === currentUser.id
+        ? '<button class="delete-recipe-btn" onclick="deleteUserRecipe(event,' + recipe.id + ')">Delete</button>'
+        : '') +
     '</div>' +
   '</article>';
 }
@@ -556,6 +562,169 @@ function updateUserUI() {
   }
 }
 
+// ===== SUBMIT RECIPE =====
+var RECIPE_CATEGORIES = [
+  'Cookies','Cakes','Muffins','Breads','Bars & Brownies',
+  'Cheesecakes','Pies & Tarts','Scones & Biscuits',
+  'French Pastries','Italian Desserts','Japanese Sweets','Other'
+];
+
+function openSubmitRecipe() {
+  document.getElementById('submit-recipe-body').innerHTML = buildSubmitForm();
+  document.getElementById('submit-recipe-overlay').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+
+function closeSubmitRecipe() {
+  document.getElementById('submit-recipe-overlay').classList.remove('open');
+  document.body.classList.remove('modal-open');
+}
+
+function buildSubmitForm() {
+  return '<h2 class="auth-title">Share a Recipe</h2>' +
+  '<form class="submit-recipe-form" onsubmit="handleSubmitRecipe(event)">' +
+
+  '<div class="submit-two-col">' +
+    '<div class="auth-field">' +
+      '<label>Recipe name *</label>' +
+      '<input type="text" name="name" required placeholder="e.g. Lemon Poppy Seed Cake" />' +
+    '</div>' +
+    '<div class="auth-field">' +
+      '<label>Category *</label>' +
+      '<select name="category" required>' +
+        RECIPE_CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+      '</select>' +
+    '</div>' +
+  '</div>' +
+
+  '<div class="auth-field">' +
+    '<label>Description *</label>' +
+    '<textarea name="description" required rows="2" placeholder="A short description of your recipe…"></textarea>' +
+  '</div>' +
+
+  '<div class="submit-four-col">' +
+    '<div class="auth-field"><label>Calories / serving *</label><input type="number" name="calories" required min="1" placeholder="e.g. 320" /></div>' +
+    '<div class="auth-field"><label>Servings *</label><input type="number" name="servings" required min="1" placeholder="e.g. 12" /></div>' +
+    '<div class="auth-field"><label>Prep time (min) *</label><input type="number" name="prep_time" required min="0" placeholder="e.g. 15" /></div>' +
+    '<div class="auth-field"><label>Cook time (min) *</label><input type="number" name="cook_time" required min="0" placeholder="e.g. 30" /></div>' +
+  '</div>' +
+
+  '<div class="auth-field">' +
+    '<label>Ingredients *</label>' +
+    '<div id="ing-list">' +
+      '<div class="dynamic-row"><input type="text" class="ing-input" placeholder="e.g. 2 cups all-purpose flour" /><button type="button" class="row-remove-btn" onclick="removeRow(this)">×</button></div>' +
+    '</div>' +
+    '<button type="button" class="row-add-btn" onclick="addIngredient()">+ Add ingredient</button>' +
+  '</div>' +
+
+  '<div class="auth-field">' +
+    '<label>Steps *</label>' +
+    '<div id="steps-list">' +
+      '<div class="dynamic-row dynamic-row-step"><span class="step-num">1</span><textarea class="step-input" rows="2" placeholder="Describe this step…"></textarea><button type="button" class="row-remove-btn" onclick="removeRow(this)">×</button></div>' +
+    '</div>' +
+    '<button type="button" class="row-add-btn" onclick="addStep()">+ Add step</button>' +
+  '</div>' +
+
+  '<div id="submit-recipe-error" class="auth-error"></div>' +
+  '<button type="submit" class="auth-submit-btn">Publish Recipe</button>' +
+  '</form>';
+}
+
+function addIngredient() {
+  var list = document.getElementById('ing-list');
+  var div = document.createElement('div');
+  div.className = 'dynamic-row';
+  div.innerHTML = '<input type="text" class="ing-input" placeholder="e.g. 1 tsp vanilla extract" />' +
+    '<button type="button" class="row-remove-btn" onclick="removeRow(this)">×</button>';
+  list.appendChild(div);
+}
+
+function addStep() {
+  var list = document.getElementById('steps-list');
+  var num  = list.querySelectorAll('.dynamic-row').length + 1;
+  var div  = document.createElement('div');
+  div.className = 'dynamic-row dynamic-row-step';
+  div.innerHTML = '<span class="step-num">' + num + '</span>' +
+    '<textarea class="step-input" rows="2" placeholder="Describe this step…"></textarea>' +
+    '<button type="button" class="row-remove-btn" onclick="removeRow(this)">×</button>';
+  list.appendChild(div);
+  renumberSteps();
+}
+
+function removeRow(btn) {
+  btn.closest('.dynamic-row').remove();
+  renumberSteps();
+}
+
+function renumberSteps() {
+  document.querySelectorAll('#steps-list .step-num').forEach(function(el, i) {
+    el.textContent = i + 1;
+  });
+}
+
+async function handleSubmitRecipe(e) {
+  e.preventDefault();
+  var form  = e.target;
+  var errEl = document.getElementById('submit-recipe-error');
+  errEl.textContent = '';
+
+  var ingredients = Array.from(document.querySelectorAll('.ing-input'))
+    .map(function(el) { return el.value.trim(); })
+    .filter(Boolean);
+  var steps = Array.from(document.querySelectorAll('.step-input'))
+    .map(function(el) { return el.value.trim(); })
+    .filter(Boolean);
+
+  if (ingredients.length === 0) { errEl.textContent = 'Add at least one ingredient.'; return; }
+  if (steps.length === 0)       { errEl.textContent = 'Add at least one step.'; return; }
+
+  var body = {
+    name:        form.name.value.trim(),
+    category:    form.category.value,
+    description: form.description.value.trim(),
+    calories:    parseInt(form.calories.value),
+    servings:    parseInt(form.servings.value),
+    prep_time:   parseInt(form.prep_time.value),
+    cook_time:   parseInt(form.cook_time.value),
+    ingredients: ingredients,
+    steps:       steps,
+  };
+
+  var submitBtn = form.querySelector('[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Publishing…';
+
+  var res = await fetch('/api/my-recipes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  });
+  var data = await res.json();
+  if (!res.ok) {
+    errEl.textContent = data.error || 'Something went wrong.';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Publish Recipe';
+    return;
+  }
+
+  closeSubmitRecipe();
+  await renderRecipes();
+  // Open the newly created recipe
+  openModal(data.id);
+}
+
+async function deleteUserRecipe(e, recipeId) {
+  e.stopPropagation();
+  if (!confirm('Delete your recipe? This cannot be undone.')) return;
+  var res = await fetch('/api/my-recipes/' + recipeId, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) { alert('Could not delete recipe.'); return; }
+  await renderRecipes();
+}
+
 // ===== RENDER =====
 async function renderRecipes() {
   var grid    = document.getElementById('recipe-grid');
@@ -633,7 +802,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e.target === e.currentTarget) closeAuth();
   });
 
+  document.getElementById('submit-recipe-overlay').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeSubmitRecipe();
+  });
+
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') { closeModal(); closeAuth(); }
+    if (e.key === 'Escape') { closeModal(); closeAuth(); closeSubmitRecipe(); }
   });
 });

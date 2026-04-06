@@ -40,6 +40,12 @@ def get_db():
 
 def ensure_tables():
     conn = get_db()
+    # Add submitted_by column to recipes if it doesn't exist yet
+    try:
+        conn.execute("ALTER TABLE recipes ADD COLUMN submitted_by INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS recipe_variants (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,11 +86,19 @@ def ensure_tables():
     conn.close()
 
 
-def row_to_dict(row):
+def row_to_dict(row, conn=None):
     d = dict(row)
     for key in ("ingredients", "steps", "healthy_ingredients", "healthy_steps", "healthy_benefits"):
-        if key in d:
+        if key in d and d[key]:
             d[key] = json.loads(d[key])
+        elif key in d and not d[key]:
+            d[key] = []
+    # Resolve submitter username
+    if conn and d.get("submitted_by"):
+        u = conn.execute("SELECT username FROM users WHERE id = ?", (d["submitted_by"],)).fetchone()
+        d["submitted_by_username"] = u["username"] if u else None
+    else:
+        d["submitted_by_username"] = None
     return d
 
 
@@ -319,7 +333,7 @@ def get_recipes():
     rows = conn.execute(
         f"SELECT * FROM recipes {where_sql} ORDER BY {sort} {order}", params
     ).fetchall()
-    result = [attach_review_summary(attach_variants(row_to_dict(r), conn), conn) for r in rows]
+    result = [attach_review_summary(attach_variants(row_to_dict(r, conn), conn), conn) for r in rows]
     conn.close()
     return jsonify(result)
 
@@ -345,7 +359,7 @@ def get_recipe(recipe_id):
     if row is None:
         conn.close()
         abort(404, "Recipe not found")
-    result = attach_review_summary(attach_variants(row_to_dict(row), conn), conn)
+    result = attach_review_summary(attach_variants(row_to_dict(row, conn), conn), conn)
     conn.close()
     return jsonify(result)
 
@@ -423,7 +437,7 @@ def adapt_recipe(recipe_id):
     if row is None:
         conn.close()
         abort(404, "Recipe not found")
-    recipe = row_to_dict(row)
+    recipe = row_to_dict(row, conn)
 
     prompt = build_adapt_prompt(recipe, variant_type)
     try:
@@ -497,6 +511,97 @@ def create_recipe():
     row = conn.execute("SELECT * FROM recipes WHERE id = ?", (cur.lastrowid,)).fetchone()
     conn.close()
     return jsonify(row_to_dict(row)), 201
+
+
+# ── POST /api/my-recipes (user-submitted) ─────────────────────────────────────
+
+VALID_CATEGORIES = [
+    "Cookies", "Cakes", "Muffins", "Breads", "Bars & Brownies",
+    "Cheesecakes", "Pies & Tarts", "Scones & Biscuits",
+    "French Pastries", "Italian Desserts", "Japanese Sweets", "Other"
+]
+
+@app.route("/api/my-recipes", methods=["POST"])
+def submit_user_recipe():
+    require_auth()
+    data = request.get_json(force=True) or {}
+
+    name       = (data.get("name") or "").strip()
+    category   = (data.get("category") or "").strip()
+    description= (data.get("description") or "").strip()
+    calories   = data.get("calories")
+    servings   = data.get("servings")
+    prep_time  = data.get("prep_time")
+    cook_time  = data.get("cook_time")
+    ingredients= data.get("ingredients") or []
+    steps      = data.get("steps") or []
+
+    if not name:
+        abort(400, "name is required")
+    if category not in VALID_CATEGORIES:
+        abort(400, f"category must be one of: {', '.join(VALID_CATEGORIES)}")
+    if not description:
+        abort(400, "description is required")
+    if not isinstance(calories, int) or calories < 0:
+        abort(400, "calories must be a positive integer")
+    if not isinstance(servings, int) or servings < 1:
+        abort(400, "servings must be a positive integer")
+    if not isinstance(prep_time, int) or prep_time < 0:
+        abort(400, "prep_time must be a non-negative integer (minutes)")
+    if not isinstance(cook_time, int) or cook_time < 0:
+        abort(400, "cook_time must be a non-negative integer (minutes)")
+    if not ingredients or not isinstance(ingredients, list):
+        abort(400, "ingredients must be a non-empty list")
+    if not steps or not isinstance(steps, list):
+        abort(400, "steps must be a non-empty list")
+
+    # Normalise ingredients: accept either strings or objects
+    norm_ings = []
+    for ing in ingredients:
+        if isinstance(ing, str):
+            norm_ings.append({"us": ing.strip(), "metric": ing.strip()})
+        elif isinstance(ing, dict):
+            norm_ings.append({"us": ing.get("us", ""), "metric": ing.get("metric", ing.get("us", ""))})
+
+    uid  = current_user_id()
+    conn = get_db()
+    cur  = conn.execute(
+        """INSERT INTO recipes
+           (name, category, description, calories, servings, prep_time, cook_time,
+            ingredients, steps,
+            healthy_description, healthy_calories, healthy_ingredients, healthy_steps,
+            healthy_benefits, health_score, submitted_by)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (name, category, description, calories, servings, prep_time, cook_time,
+         json.dumps(norm_ings), json.dumps([s.strip() for s in steps if s]),
+         description, calories,
+         json.dumps(norm_ings), json.dumps([s.strip() for s in steps if s]),
+         json.dumps([]), 5,
+         uid)
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM recipes WHERE id = ?", (cur.lastrowid,)).fetchone()
+    result = attach_review_summary(attach_variants(row_to_dict(row, conn), conn), conn)
+    conn.close()
+    return jsonify(result), 201
+
+
+@app.route("/api/my-recipes/<int:recipe_id>", methods=["DELETE"])
+def delete_user_recipe(recipe_id):
+    require_auth()
+    uid  = current_user_id()
+    conn = get_db()
+    row  = conn.execute("SELECT submitted_by FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if not row:
+        conn.close()
+        abort(404, "Recipe not found")
+    if row["submitted_by"] != uid:
+        conn.close()
+        abort(403, "Not your recipe")
+    conn.execute("DELETE FROM recipes WHERE id = ?", (recipe_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"deleted": recipe_id})
 
 
 # ── PUT /api/recipes/<id> ──────────────────────────────────────────────────────

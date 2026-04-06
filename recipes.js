@@ -615,14 +615,10 @@ function updateUserUI() {
 }
 
 // ===== SUBMIT RECIPE =====
-var RECIPE_CATEGORIES = [
-  'Cookies','Cakes','Muffins','Breads','Bars & Brownies',
-  'Cheesecakes','Pies & Tarts','Scones & Biscuits',
-  'French Pastries','Italian Desserts','Japanese Sweets','Other'
-];
-
-function openSubmitRecipe() {
-  document.getElementById('submit-recipe-body').innerHTML = buildSubmitForm();
+async function openSubmitRecipe() {
+  var cats = await fetchCategories();
+  var catNames = cats.map(function(c) { return c.category; });
+  document.getElementById('submit-recipe-body').innerHTML = buildSubmitForm(catNames);
   document.getElementById('submit-recipe-overlay').classList.add('open');
   document.body.classList.add('modal-open');
 }
@@ -632,7 +628,7 @@ function closeSubmitRecipe() {
   document.body.classList.remove('modal-open');
 }
 
-function buildSubmitForm() {
+function buildSubmitForm(categories) {
   return '<h2 class="auth-title">Share a Recipe</h2>' +
   '<form class="submit-recipe-form" onsubmit="handleSubmitRecipe(event)">' +
 
@@ -644,7 +640,7 @@ function buildSubmitForm() {
     '<div class="auth-field">' +
       '<label>Category *</label>' +
       '<select name="category" required>' +
-        RECIPE_CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+        categories.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
       '</select>' +
     '</div>' +
   '</div>' +

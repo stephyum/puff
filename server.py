@@ -528,12 +528,6 @@ def create_recipe():
 
 # ── POST /api/my-recipes (user-submitted) ─────────────────────────────────────
 
-VALID_CATEGORIES = [
-    "Cookies", "Cakes", "Muffins", "Breads", "Bars & Brownies",
-    "Cheesecakes", "Pies & Tarts", "Scones & Biscuits",
-    "French Pastries", "Italian Desserts", "Japanese Sweets", "Other"
-]
-
 @app.route("/api/my-recipes", methods=["POST"])
 def submit_user_recipe():
     require_auth()
@@ -551,8 +545,8 @@ def submit_user_recipe():
 
     if not name:
         abort(400, "name is required")
-    if category not in VALID_CATEGORIES:
-        abort(400, f"category must be one of: {', '.join(VALID_CATEGORIES)}")
+    if not category:
+        abort(400, "category is required")
     if not description:
         abort(400, "description is required")
     if not isinstance(calories, int) or calories < 0:

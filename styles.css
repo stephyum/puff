@@ -1167,3 +1167,112 @@ body.modal-open { overflow: hidden; }
   white-space: nowrap;
 }
 .delete-recipe-btn:hover { background: #fee2e2; }
+
+/* ===== REVIEW PHOTO UPLOAD ===== */
+.review-photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.photo-upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  width: fit-content;
+}
+.photo-upload-label:hover { border-color: var(--green-400); color: var(--green-600); }
+
+.review-photo-preview {
+  position: relative;
+  width: fit-content;
+}
+.review-photo-preview img {
+  max-width: 200px;
+  max-height: 160px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1.5px solid var(--border);
+}
+.remove-photo-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Review photo in card */
+.review-photo {
+  margin-top: 10px;
+}
+.review-photo img {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  cursor: zoom-in;
+  transition: opacity 0.15s;
+}
+.review-photo img:hover { opacity: 0.9; }
+
+/* Photo lightbox */
+.photo-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.82);
+}
+.lightbox-img-wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 92vw;
+  max-height: 92vh;
+}
+.lightbox-img-wrap img {
+  max-width: 92vw;
+  max-height: 88vh;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+  display: block;
+}
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: #111;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}

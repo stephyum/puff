@@ -410,6 +410,16 @@ async function loadReviews(recipeId) {
       '<textarea id="review-comment" class="review-textarea" placeholder="Share your experience\u2026" rows="3">' +
         (existing ? (existing.comment || '') : '') +
       '</textarea>' +
+      '<div class="review-photo-upload">' +
+        '<label class="photo-upload-label" for="review-photo-input">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>' +
+          (existing && existing.photo ? 'Change photo' : 'Add a photo of your bake') +
+        '</label>' +
+        '<input type="file" id="review-photo-input" accept="image/*" style="display:none" onchange="previewReviewPhoto(this)" />' +
+        (existing && existing.photo
+          ? '<div id="review-photo-preview" class="review-photo-preview"><img src="' + existing.photo + '" alt="Your photo" /><button type="button" class="remove-photo-btn" onclick="clearReviewPhoto()">×</button></div>'
+          : '<div id="review-photo-preview" class="review-photo-preview" style="display:none"></div>') +
+      '</div>' +
       '<div class="review-form-actions">' +
         '<button class="review-submit-btn" onclick="submitReview(' + recipeId + ')">' +
           (existing ? 'Update review' : 'Post review') +
@@ -437,12 +447,53 @@ async function loadReviews(recipeId) {
           '<span class="review-date">' + new Date(r.created_at).toLocaleDateString() + '</span>' +
         '</div>' +
         (r.comment ? '<p class="review-comment">' + r.comment + '</p>' : '') +
+        (r.photo ? '<div class="review-photo"><img src="' + r.photo + '" alt="' + r.username + '\'s bake" loading="lazy" onclick="openPhotoLightbox(this.src)" /></div>' : '') +
       '</div>';
     });
     html += '</div>';
   }
 
   panel.innerHTML = html;
+}
+
+var pendingPhoto = null;  // base64 data URL or null
+
+function previewReviewPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+  if (file.size > 4 * 1024 * 1024) {
+    alert('Photo must be under 4 MB.');
+    input.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    pendingPhoto = e.target.result;
+    var preview = document.getElementById('review-photo-preview');
+    preview.style.display = '';
+    preview.innerHTML = '<img src="' + pendingPhoto + '" alt="Preview" />' +
+      '<button type="button" class="remove-photo-btn" onclick="clearReviewPhoto()">×</button>';
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearReviewPhoto() {
+  pendingPhoto = null;
+  var preview = document.getElementById('review-photo-preview');
+  if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+  var input = document.getElementById('review-photo-input');
+  if (input) input.value = '';
+}
+
+function openPhotoLightbox(src) {
+  var lb = document.createElement('div');
+  lb.className = 'photo-lightbox';
+  lb.innerHTML = '<div class="lightbox-backdrop" onclick="this.parentNode.remove()"></div>' +
+    '<div class="lightbox-img-wrap">' +
+      '<img src="' + src + '" alt="Bake photo" />' +
+      '<button class="lightbox-close" onclick="this.closest(\'.photo-lightbox\').remove()">×</button>' +
+    '</div>';
+  document.body.appendChild(lb);
 }
 
 async function submitReview(recipeId) {
@@ -454,13 +505,14 @@ async function submitReview(recipeId) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ rating: pendingRating, comment: comment }),
+    body: JSON.stringify({ rating: pendingRating, comment: comment, photo: pendingPhoto }),
   });
   if (!res.ok) {
     var err = await res.json().catch(function() { return {}; });
     alert('Error: ' + (err.error || res.status));
     return;
   }
+  pendingPhoto = null;
   // Refresh reviews and update recipe avg in local state
   await loadReviews(recipeId);
   var recipe = recipes.find(function(r) { return r.id === recipeId; });

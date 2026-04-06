@@ -46,6 +46,12 @@ def ensure_tables():
         conn.commit()
     except Exception:
         pass  # column already exists
+    # Add photo column to reviews if it doesn't exist yet
+    try:
+        conn.execute("ALTER TABLE reviews ADD COLUMN photo TEXT")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS recipe_variants (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -231,7 +237,7 @@ def me():
 def get_reviews(recipe_id):
     conn  = get_db()
     rows  = conn.execute(
-        """SELECT r.id, r.rating, r.comment, r.created_at,
+        """SELECT r.id, r.rating, r.comment, r.photo, r.created_at,
                   u.username
            FROM reviews r
            JOIN users u ON u.id = r.user_id
@@ -260,24 +266,31 @@ def create_or_update_review(recipe_id):
     data    = request.get_json(force=True) or {}
     rating  = data.get("rating")
     comment = (data.get("comment") or "").strip()
+    photo   = data.get("photo") or None  # base64 data URL or null
 
     if rating is None or not isinstance(rating, int) or not (1 <= rating <= 5):
         abort(400, "rating must be an integer 1–5")
+    if photo and not photo.startswith("data:image/"):
+        abort(400, "photo must be a base64 image data URL")
+    # Limit photo size to ~4 MB (base64 overhead ~33%)
+    if photo and len(photo) > 5_500_000:
+        abort(400, "Photo is too large. Please use an image under 4 MB.")
 
     uid  = current_user_id()
     conn = get_db()
     conn.execute(
-        """INSERT INTO reviews (recipe_id, user_id, rating, comment)
-           VALUES (?, ?, ?, ?)
+        """INSERT INTO reviews (recipe_id, user_id, rating, comment, photo)
+           VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(recipe_id, user_id) DO UPDATE SET
              rating = excluded.rating,
              comment = excluded.comment,
+             photo = excluded.photo,
              created_at = CURRENT_TIMESTAMP""",
-        (recipe_id, uid, rating, comment or None)
+        (recipe_id, uid, rating, comment or None, photo)
     )
     conn.commit()
     row = conn.execute(
-        """SELECT r.id, r.rating, r.comment, r.created_at, u.username
+        """SELECT r.id, r.rating, r.comment, r.photo, r.created_at, u.username
            FROM reviews r JOIN users u ON u.id = r.user_id
            WHERE r.recipe_id = ? AND r.user_id = ?""",
         (recipe_id, uid)

@@ -142,11 +142,110 @@ def require_auth():
         abort(401, "Login required")
 
 
+SITE_URL = os.environ.get("SITE_URL", "https://puff-hgxj.onrender.com")
+
+
 # ── Static files ───────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
     return send_from_directory(BASE_DIR, "index.html")
+
+
+@app.route("/robots.txt")
+def robots():
+    from flask import Response
+    body = f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml\n"
+    return Response(body, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap():
+    from flask import Response
+    conn = get_db()
+    rows = conn.execute("SELECT id, name FROM recipes ORDER BY id").fetchall()
+    conn.close()
+    urls = [f"  <url><loc>{SITE_URL}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>"]
+    for r in rows:
+        urls.append(f'  <url><loc>{SITE_URL}/recipe/{r["id"]}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>')
+    xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    xml += "\n".join(urls) + "\n</urlset>"
+    return Response(xml, mimetype="application/xml")
+
+
+@app.route("/recipe/<int:recipe_id>")
+def recipe_page(recipe_id):
+    """Server-rendered recipe page for SEO. Includes JSON-LD structured data."""
+    conn = get_db()
+    row  = conn.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if row is None:
+        conn.close()
+        return send_from_directory(BASE_DIR, "index.html")
+    r    = row_to_dict(row, conn)
+    rev  = conn.execute(
+        "SELECT COUNT(*) as cnt, AVG(rating) as avg FROM reviews WHERE recipe_id = ?", (recipe_id,)
+    ).fetchone()
+    conn.close()
+
+    ing_text = ", ".join(i.get("us", "") for i in r["ingredients"])
+    steps_text = " ".join(f"{n+1}. {s}" for n, s in enumerate(r["steps"]))
+
+    jsonld = {
+        "@context": "https://schema.org",
+        "@type": "Recipe",
+        "name": r["name"],
+        "description": r["description"],
+        "recipeCategory": r["category"],
+        "recipeYield": str(r["servings"]),
+        "prepTime": f"PT{r['prep_time']}M",
+        "cookTime": f"PT{r['cook_time']}M",
+        "nutrition": {"@type": "NutritionInformation", "calories": f"{r['calories']} calories"},
+        "recipeIngredient": [i.get("us", "") for i in r["ingredients"]],
+        "recipeInstructions": [{"@type": "HowToStep", "text": s} for s in r["steps"]],
+        "url": f"{SITE_URL}/recipe/{recipe_id}",
+        "publisher": {"@type": "Organization", "name": "Puff"},
+    }
+    if r.get("photo_url"):
+        jsonld["image"] = r["photo_url"]
+    if rev["cnt"] and rev["avg"]:
+        jsonld["aggregateRating"] = {
+            "@type": "AggregateRating",
+            "ratingValue": round(rev["avg"], 1),
+            "reviewCount": rev["cnt"],
+        }
+
+    og_image = r.get("photo_url") or ""
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{r['name']} — Puff Healthy Baking</title>
+  <meta name="description" content="{r['description'][:160]}" />
+  <link rel="canonical" href="{SITE_URL}/recipe/{recipe_id}" />
+  <meta property="og:type"        content="article" />
+  <meta property="og:title"       content="{r['name']} — Puff Healthy Baking" />
+  <meta property="og:description" content="{r['description'][:160]}" />
+  <meta property="og:url"         content="{SITE_URL}/recipe/{recipe_id}" />
+  {"<meta property='og:image' content='" + og_image + "' />" if og_image else ""}
+  <script type="application/ld+json">{json.dumps(jsonld)}</script>
+  <meta http-equiv="refresh" content="0; url=/#recipe-{recipe_id}" />
+  <style>
+    body {{ font-family: sans-serif; background: #faf5ee; display: flex; align-items: center;
+           justify-content: center; min-height: 100vh; margin: 0; }}
+    .box {{ text-align: center; padding: 2rem; }}
+    a {{ color: #955a2e; }}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <p>Redirecting to <strong>{r['name']}</strong>…</p>
+    <p><a href="/">Go to Puff</a></p>
+  </div>
+</body>
+</html>"""
+    return html
+
 
 @app.route("/<path:filename>")
 def static_files(filename):

@@ -152,6 +152,12 @@ def index():
     return send_from_directory(BASE_DIR, "index.html")
 
 
+@app.route("/google006ae152bb843d8a.html")
+def google_verify():
+    from flask import Response
+    return Response("google-site-verification: google006ae152bb843d8a.html", mimetype="text/html")
+
+
 @app.route("/robots.txt")
 def robots():
     from flask import Response
